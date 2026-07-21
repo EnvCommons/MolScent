@@ -29,7 +29,7 @@ There are two splits: train (1,000 tasks) and test (100 tasks), totaling 1,100 t
 
 ## Reward Structure
 
-This is a sparse, verifiable reward environment with binary scoring. The agent calls `submit_answer` once with a letter (A, B, C, or D). The answer is compared via exact match against the correct answer.
+This is a sparse, verifiable reward environment with binary scoring. The agent replies with an ordinary message stating a letter (A, B, C, or D); the environment extracts the letter and grades it by exact match against the correct answer.
 
 - **Correct**: Reward **1.0**.
 - **Incorrect**: Reward **0.0**.
@@ -42,13 +42,11 @@ Tasks are generated from the [Pyrfume GoodScents dataset](https://pyrfume.org/) 
 
 ## Tools
 
-Agents are given a single tool:
-
-- `submit_answer`: Submit an answer letter (A, B, C, or D) for the multiple-choice question. Returns whether the answer is correct. This tool can only be called once per task.
+Agents are given no visible tools. The environment uses a `@terminal` tool: the agent's final plain-text message ends the rollout and is graded by extracting the answer letter.
 
 ## Time Horizon
 
-MolScent is a single-turn environment. The agent receives a multiple-choice question and submits one answer. Each task requires exactly one tool call.
+MolScent is a single-turn environment. The agent receives a multiple-choice question and replies with a single message stating its answer letter.
 
 ## Environment Difficulty
 

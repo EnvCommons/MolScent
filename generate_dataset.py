@@ -269,8 +269,7 @@ def main():
                 options=options_text,
             )
 
-            # Add instruction to use submit_answer tool
-            prompt += "\n\nSubmit your answer (A, B, C, or D) using the submit_answer tool."
+            prompt += "\n\nReply with your final answer as an ordinary message. State the letter A, B, C, or D."
 
             tasks.append({
                 "id": f"ms_{task_idx:04d}",

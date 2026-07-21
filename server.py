@@ -10,12 +10,13 @@ Following ether0's property-cat-smell pattern:
 Binary reward: 1.0 if correct, else 0.0.
 """
 import os
+import re
 from pathlib import Path
 
 import pandas as pd
 from pydantic import BaseModel, Field
 
-from openreward.environments import Environment, JSONObject, Server, TextBlock, ToolOutput, tool
+from openreward.environments import Environment, JSONObject, Server, TextBlock, ToolOutput, terminal, tool
 
 
 # ---- Data loading ----
@@ -52,7 +53,21 @@ class MolscentTaskSpec(BaseModel):
 
 
 class SubmitAnswerInput(BaseModel):
-    answer: str = Field(..., description="Your answer: A, B, C, or D")
+    answer: str = Field(..., description="Your final message. Include the letter A, B, C, or D corresponding to your answer.")
+
+
+_LETTER_RE = re.compile(r"(?<![A-Za-z])([ABCD])(?![A-Za-z])")
+
+
+def _extract_letter(text: str) -> str:
+    """Extract A/B/C/D from a free-form assistant message.
+
+    Matches a standalone A/B/C/D (not adjacent to other letters) and returns
+    the LAST such mention — agents typically restate their final answer at the
+    end. Returns "" if no standalone letter is found.
+    """
+    matches = _LETTER_RE.findall(text.upper())
+    return matches[-1] if matches else ""
 
 
 # ---- Environment class ----
@@ -80,18 +95,14 @@ class Molscent(Environment):
     def get_prompt(self) -> list[TextBlock]:
         return [TextBlock(type="text", text=self.config.prompt)]
 
+    @terminal
     @tool
     async def submit_answer(self, params: SubmitAnswerInput) -> ToolOutput:
         """
-        Submit your answer (A, B, C, or D) for the multiple-choice question.
-        This finishes the episode.
+        Grade the assistant's final message as a multiple-choice answer.
         """
-        submitted = params.answer.strip().upper()
         expected = self.config.correct_answer.strip().upper()
-
-        # Normalize: accept "A)", "A.", "a" etc.
-        if submitted and submitted[0] in "ABCD":
-            submitted = submitted[0]
+        submitted = _extract_letter(params.answer)
 
         correct = submitted == expected
         reward = 1.0 if correct else 0.0
