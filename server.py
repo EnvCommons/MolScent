@@ -39,6 +39,11 @@ test_tasks = [t for t in all_tasks if t["split"] == "test"]
 
 
 # ---- Pydantic models ----
+# Reward for a submission made after the task has already been graded. Negative
+# so repeat submissions are actively discouraged, not merely left unscored.
+REPEAT_SUBMISSION_PENALTY = -0.1
+
+
 class MolscentTaskSpec(BaseModel):
     id: str
     question_type: str
@@ -80,6 +85,13 @@ class Molscent(Environment):
         super().__init__(task_spec)
         self.config = MolscentTaskSpec.model_validate(task_spec)
 
+        # Graded submissions this session. @terminal already hides this tool from
+        # the model, so the harness normally invokes it once at the end of the
+        # rollout -- but Environment._call_tool dispatches by name and does not
+        # exclude terminal tools, so a direct second call would re-grade and pay
+        # out again. Defence in depth.
+        self.submitted = 0
+
     @classmethod
     def list_splits(cls) -> list[str]:
         return ["train", "test"]
@@ -101,6 +113,16 @@ class Molscent(Environment):
         """
         Grade the assistant's final message as a multiple-choice answer.
         """
+        if self.submitted > 0:
+            return ToolOutput(
+                blocks=[TextBlock(type="text", text="An answer has already been submitted for this task. "
+                                       "This episode is over: it is not re-graded, and repeat "
+                                       "submissions are penalised (reward -0.1).")],
+                metadata={"already_submitted": True, "submission_count": self.submitted},
+                reward=REPEAT_SUBMISSION_PENALTY,
+                finished=True,
+            )
+
         expected = self.config.correct_answer.strip().upper()
         submitted = _extract_letter(params.answer)
 
@@ -111,6 +133,8 @@ class Molscent(Environment):
             msg = f"Correct! The answer is {expected}."
         else:
             msg = f"Incorrect. You answered {submitted}, but the correct answer is {expected}."
+
+        self.submitted += 1
 
         return ToolOutput(
             blocks=[TextBlock(type="text", text=msg)],
