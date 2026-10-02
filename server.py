@@ -61,18 +61,38 @@ class SubmitAnswerInput(BaseModel):
     answer: str = Field(..., description="Your final message. Include the letter A, B, C, or D corresponding to your answer.")
 
 
-_LETTER_RE = re.compile(r"(?<![A-Za-z])([ABCD])(?![A-Za-z])")
+# Characters that can neighbour an atom symbol inside a SMILES string. A letter
+# touching any of them is part of a structure (e.g. the C in "OC(C)=O"), not an
+# option label.
+_SMILES_CHARS = r"A-Za-z0-9=#@+\-\\/\[\]()"
+_LETTER_RE = re.compile(rf"(?<![{_SMILES_CHARS}])\(?([ABCD])\)?(?![{_SMILES_CHARS}])")
+_BOXED_RE = re.compile(r"\\boxed\{\s*(?:\\text(?:bf)?\{\s*)?\(?([ABCD])(?![A-Za-z0-9])")
+_ANSWER_RE = re.compile(
+    r"(?i:\banswer\b)[*_]*(?:\s+(?i:is))?\s*[:\-–—=]?\s*[*_`(\[]*\s*(?i:option\s+)?"
+    r"([ABCD])(?![A-Za-z0-9=#@+\\/\[(])"
+)
+_BOLD_RE = re.compile(r"\*\*\s*(?i:option\s+)?\(?([ABCD])\)?[.:]?\s*\*\*")
 
 
 def _extract_letter(text: str) -> str:
     """Extract A/B/C/D from a free-form assistant message.
 
-    Matches a standalone A/B/C/D (not adjacent to other letters) and returns
-    the LAST such mention — agents typically restate their final answer at the
-    end. Returns "" if no standalone letter is found.
+    Option letters are matched case-sensitively, so the article "a" is never
+    read as option A, and letters inside SMILES strings are ignored. In order
+    of precedence:
+      1. the last \\boxed{X};
+      2. the last explicit "Answer: X" / "the answer is X";
+      3. the last bolded letter, e.g. **X**;
+      4. the first standalone letter -- replies without an explicit marker
+         state their choice first and then contrast it with the other options.
+    Returns "" if no option letter is found.
     """
-    matches = _LETTER_RE.findall(text.upper())
-    return matches[-1] if matches else ""
+    for pattern in (_BOXED_RE, _ANSWER_RE, _BOLD_RE):
+        matches = pattern.findall(text)
+        if matches:
+            return matches[-1]
+    match = _LETTER_RE.search(text)
+    return match.group(1) if match else ""
 
 
 # ---- Environment class ----
@@ -130,9 +150,11 @@ class Molscent(Environment):
         reward = 1.0 if correct else 0.0
 
         if correct:
-            msg = f"Correct! The answer is {expected}."
+            msg = f"Correct! You answered {submitted}."
+        elif submitted:
+            msg = f"Incorrect. You answered {submitted}."
         else:
-            msg = f"Incorrect. You answered {submitted}, but the correct answer is {expected}."
+            msg = "Incorrect. Your reply did not state an option letter (A, B, C, or D)."
 
         self.submitted += 1
 
@@ -143,7 +165,6 @@ class Molscent(Environment):
                 "question_type": self.config.question_type,
                 "target_scent": self.config.target_scent,
                 "submitted_answer": submitted,
-                "correct_answer": expected,
                 "correct": correct,
             },
             reward=reward,
