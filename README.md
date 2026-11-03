@@ -18,14 +18,14 @@ MolScent does not require a sandbox. It has minimal compute requirements.
 
 ## License
 
-[MIT](https://opensource.org/license/mit).
+[MIT](https://opensource.org/licenses/MIT).
 
 ## Tasks
 
-There are two splits: train (1,000 tasks) and test (100 tasks), totaling 1,100 tasks. Each task is a 4-option multiple-choice question (A/B/C/D) with two question types:
+There are 1,000 tasks in the `train` split and 100 in `test`. Each task is a 4-option multiple-choice question (A/B/C/D) with two question types:
 
-- **Positive** (~550 tasks): "Which molecule IS {scent}?" -- the agent picks the molecule with the target scent descriptor.
-- **Negative** (~550 tasks): "Which molecule is NOT {scent}?" -- the agent picks the molecule that does NOT have the target scent descriptor.
+- **Positive** (~550 tasks): "Which molecule IS {scent}?": the agent picks the molecule with the target scent descriptor.
+- **Negative** (~550 tasks): "Which molecule is NOT {scent}?": the agent picks the molecule that does NOT have the target scent descriptor.
 
 ## Reward Structure
 
@@ -42,19 +42,15 @@ Tasks are generated from the [Pyrfume GoodScents dataset](https://pyrfume.org/) 
 
 ## Tools
 
-Agents are given no visible tools. The environment uses a `@terminal` tool: the agent's final plain-text message ends the rollout and is graded by extracting the answer letter.
+Agents are given no visible tools. The environment uses a `@terminal` tool (`submit_answer`): the agent's final plain-text message ends the rollout and is graded by extracting the answer letter.
 
 ## Time Horizon
 
 MolScent is a single-turn environment. The agent receives a multiple-choice question and replies with a single message stating its answer letter.
 
-## Environment Difficulty
-
-[Statistics on environment difficulty here]
-
 ## Other Environment Requirements
 
-There are no further environment requirements; MolScent works out of the box with the OpenReward endpoint.
+There are no further environment requirements; MolScent needs no secrets or API keys.
 
 ## Safety
 
